@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Funnelish template fill
 // @namespace    funnel-builder
-// @version      0.5.202611251043
+// @version      0.5.202611251048
 // @description  Fills Funnelish page copies with content from the funnel-builder repo while the editor loads them. Saving stays manual.
 // @match        https://editor.v2.funnelish.com/*
 // @run-at       document-start
@@ -406,8 +406,11 @@
           let out;
           try { out = AdvertorialHtml.build(Object.assign({}, v, { advertorial: settings })); }
           catch (e) { r.errors.push(key + ': ' + e.message); continue; }
-          r.changed.push({ slot: key, id: id, before: String(b.content || '').length + ' chars', after: (v.body || []).length + ' body items, ' + ((v.comments && v.comments.items) || []).length + ' comments' });
-          b.content = out;
+          // Funnelish keeps a Custom HTML block's code in style.desktop.html (block.content stays unused).
+          const st = styleOf(b) || setPath(b, 'parent_states.default.states.default.style', {}) || styleOf(b);
+          const desk = st.desktop || (st.desktop = {});
+          r.changed.push({ slot: key, id: id, before: String(desk.html || '').length + ' chars', after: (v.body || []).length + ' body items, ' + ((v.comments && v.comments.items) || []).length + ' comments' });
+          desk.html = out;
         } else if (slot.kind === 'button_html') {
           if (strip(b.content) === plainOf(value)) { r.unchanged++; continue; }
           r.changed.push({ slot: key, id: id, before: strip(b.content).slice(0, 50), after: plainOf(value).slice(0, 50) });
@@ -571,6 +574,7 @@
             ', ' + report.unchanged + ' already correct, ' + report.warnings.length + ' warning(s).' +
             '<br><b>Last step:</b> in <i>' + esc(hb.slot) + '</i>, delete the <b>✂</b> and the space after it, so it reads “' +
             esc(hb.text.slice(0, 60)) + '”. Then click Save.';
+      el.innerHTML += '<div style="opacity:.7;font-size:11px;margin-top:4px">script 0.5.202611251048</div>';
       const x = document.createElement('span'); x.textContent = '  ✕ close'; x.style.cursor = 'pointer';
       x.onclick = () => el.remove(); el.appendChild(x);
       document.body.appendChild(el);
