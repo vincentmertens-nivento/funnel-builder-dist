@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Funnelish template fill
 // @namespace    funnel-builder
-// @version      0.5.202611271303
+// @version      0.5.202611271305
 // @description  Fills Funnelish page copies with content from the funnel-builder repo while the editor loads them. Saving stays manual.
 // @match        https://editor.v2.funnelish.com/*
 // @run-at       document-start
@@ -192,7 +192,26 @@
 
   const params = new URLSearchParams(location.search);
   const pageId = Number(params.get('page'));
-  if (params.get(ACTIVATE_PARAM) !== '1') return;
+  // The editor only opens through Funnelish's own "Edit page" (its address carries a sign-in token), so a link of ours
+  // with &fill=1 is not enough. On a page we have content for, the script shows a "Fill" button; a click marks the
+  // page for this tab and reloads the same address, and the fill runs on that load (as &fill=1 would).
+  const FLAG = 'fnsh-fill-' + pageId;
+  let armed = false;
+  try { armed = sessionStorage.getItem(FLAG) === '1'; if (armed) sessionStorage.removeItem(FLAG); } catch (e) {}
+  if (params.get(ACTIVATE_PARAM) !== '1' && !armed) {
+    if (!PAGES[String(pageId)] || LIVE_PAGES.includes(pageId)) return;
+    const add = () => {
+      if (!document.body) return setTimeout(add, 300);
+      const b = document.createElement('button');
+      b.textContent = '✂ Fill this page (' + (PAGES[String(pageId)].content.slug || PAGES[String(pageId)].template) + ')';
+      b.style.cssText = 'position:fixed;z-index:2147483647;right:16px;bottom:16px;padding:10px 16px;border:0;border-radius:8px;' +
+        'background:#1F5E57;color:#fff;font:600 13px system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.25)';
+      b.onclick = () => { try { sessionStorage.setItem(FLAG, '1'); } catch (e) {} location.reload(); };
+      document.body.appendChild(b);
+    };
+    add();
+    return;
+  }
   if (LIVE_PAGES.includes(pageId)) { console.error('[fill] Live page, script stopped.'); return; }
   const PAGE = PAGES[String(pageId)];
   if (!PAGE) { console.warn('[fill] Page ' + pageId + ' is not in pages.json, script stopped.'); return; }
@@ -780,7 +799,7 @@
             ', ' + report.unchanged + ' already correct, ' + report.warnings.length + ' warning(s).' +
             '<br><b>Last step:</b> in <i>' + esc(hb.slot) + '</i>, delete the <b>✂</b> and the space after it, so it reads “' +
             esc(hb.text.slice(0, 60)) + '”. Then click Save.';
-      el.innerHTML += '<div style="opacity:.7;font-size:11px;margin-top:4px">script 0.5.202611271303</div>';
+      el.innerHTML += '<div style="opacity:.7;font-size:11px;margin-top:4px">script 0.5.202611271305</div>';
       const x = document.createElement('span'); x.textContent = '  ✕ close'; x.style.cursor = 'pointer';
       x.onclick = () => el.remove(); el.appendChild(x);
       document.body.appendChild(el);
